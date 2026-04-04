@@ -5,4 +5,5 @@ author:
   - name: Jocelyn Cramer
     email: jocelyn.cramer@colostate.edu
 format: html
+output-dir: docs
 ---
