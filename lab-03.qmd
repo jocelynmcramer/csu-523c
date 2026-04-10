@@ -220,11 +220,13 @@ To achieve this:
 
 ```{r, eval = TRUE}
 Boundary_CONUS2 <- Boundary_CONUS |>
-  st_as_sf() |> rmapshaper::ms_simplify(keep = 0.05, method = "vis", keep_shapes = TRUE)
+  st_as_sf() |> rmapshaper::ms_simplify(keep = 0.07, method = "vis", keep_shapes = TRUE)
 
 plot(st_geometry(Boundary_CONUS), col = NA, border = "grey60", lwd = 1)
 plot(st_geometry(Boundary_CONUS2), add = TRUE, border = "maroon", lwd = 2)
 ```
+
+> A percentage vertex of 0.07 was retained as this "keep" value best highlighted the border of the United States with an optimal vertex reduction. This ensures accurate and manageable data downloading for this analysis.
 
 - Once you are happy with your simplification, use the `mapview::npts` function to report the number of points in your original object, and the number of points in your simplified object. 
 
@@ -236,7 +238,7 @@ Points
 Points2 <- mapview::npts(Boundary_CONUS2)
 Points2
 
-## Through the process of simpifying my data I was able to remove 10,715 points (11,292-577). The consequences of doing this computationally is there is fewer data now available, making it easier to manage but there might be different statistics if all the points were included.
+## Through the process of simplifying my data I was able to remove 10,485 points (11,292-807). The consequence of doing this computationally is there is less data now available, making it easier to manage but there might be different statistics if all the points were included. 
 ```
 
 - Finally, use your simplified object to crop the two triangulated tessellations with `st_intersection`:
@@ -257,14 +259,10 @@ Instead, lets make a function that takes an `sf` object as _arg1_ and a characte
 The form of a function is: 
 
 ```{r}
-#| echo: true
-#| eval: false
-
-name = function(arg1, arg2) {
-  
-  ... code goes here ...
-  
-}
+# echo: true
+# eval: false
+#name = function(arg1, arg2) {
+#  ... code goes here ...}
 ```
 
 *****
@@ -311,6 +309,8 @@ Plot(Clip_Voronoi, "Voronoi Tessellation")
 Plot(Clip_Triangulated, "Triangulated Tessellation")
 Plot(Clip_Gridded, "Square Gridded Coverage")
 Plot(Clip_Hexagonal, "Hexagonal Gridded Coverage")
+
+## The United States visualized using the different tessellated surfaces.
 ```
 
 # Question 2:
@@ -375,14 +375,15 @@ Once your 5 summaries are bound (2 tessellations, 2 coverage's, and the raw coun
 ```{r, echo = FALSE}
 Table1 |>
   knitr::kable(col.names = c("Tessellated Surfaces", "# Tiles", "Mean Area (km^2)", 
-                             "SD Area (km^2)", "Total Area (km^2)"),
-    caption = "Table 1. Five Tessellated surfaces and their areas.") |>
-  kableExtra::kable_styling(full_width = FALSE)
+                             "Standard Deviation", "Total Area (km^2)"),
+    caption = "Table 1. Five Tessellated surfaces and their areas.") 
 ```
 
 ### Step 2.5
 
 Comment on the traits of each tessellation. Be specific about how these traits might impact the results of a point-in-polygon analysis in the contexts of the modifiable areal unit problem and with respect computational requirements.
+
+> Table 1 summarizes the five tessellated surfaces and their geometric characteristics. The triangulated tessellation contains substantially more tiles (6,198) than the other methods, nearly doubling their counts. As a result, it has a much smaller mean tile area (~1,290 km^2), while the hexagonal gridded coverage has the largest mean area (~3,360 km^2). The other tessellations exhibit relatively similar mean areas, indicating comparability. In terms of variability, the square gridded coverage has the lowest standard deviation, reflecting its uniform structure, while the triangulated tessellation shows greater variability. These differences directly impact point-in-polygon results. Specifically, the triangulated tessellation has many small tiles allowing it to capture small-scale variation, whereas the hexagonal or square grids produce more generalized results due to their larger tiles. This demonstrates how different spatial aggregations can lead to different interpretations of the same data, showcasing the Modifiable Areal Unit Problem (MAUP). Regarding computational requirements, these also vary across tessellations. Square and hexagonal grid tessellations are more efficient due to their uniform structure, though they may lose out small-scale variability. In contrast, the triangulated tessellation contains more features, requiring more time and effort to process. Overall, each tessellation has trade-offs depending on the level of detail required and the computational resources available.
 
 ****
 
@@ -513,7 +514,7 @@ Dams <- function(arg1, arg2) {
     geom_sf(aes(fill = n), color = NA) +
     scale_fill_viridis_c() +
     theme_void() +
-    labs(title = arg2, caption = paste("Number of dams:", sum(arg1$n, na.rm = TRUE)))}
+    labs(title = arg2, caption = paste("Number of dams:", sum(arg1$n)))}
 ```
 
 ### Step 3.5
@@ -540,6 +541,8 @@ Now that you have dam counts across all five tessellation methods, compare the r
 Your answer should be **3–4 paragraphs** and grounded in the actual visualizations and patterns you observe from your tessellation comparisons.
 
 ```{r}
+library(patchwork)
+
 Plot_1 <- Dams(Dams_County, "Original Counties")
 Plot_2 <- Dams(Dams_Voronoi, "Voronoi Tessellation")
 Plot_3 <- Dams(Dams_Triangulated, "Triangulated Tessellation")
@@ -548,6 +551,11 @@ Plot_5 <- Dams(Dams_Hexagonal, "Hexagonal Gridded Coverage")
 
 (Plot_1 | Plot_2 | Plot_3) / (Plot_4 | Plot_5)
 ```
+> Plotted above are all five tessellated surfaces, revealing the clustering of dam patterns. Across most of the United States, variability is small, but there are noticeable differences in value ranges and increased variation in the West. There is a clear clustering of dams in the southern Midwest across all surfaces. Differences become more visible upon closer inspection. For instance, the triangulated tessellation is highly fragmented compared to the square and hexagonal gridded coverages. The voronoi tessellation also appears fragmented but includes more variability, especially in the West compared to the other surfaces. As discussed in lecture, the same point data can produce different statistical results, demonstrating the Modifiable Areal Unit Problem (MAUP).
+The variety of tessellation surfaces reveals that at a smaller scale clustering patterns can differ. For instance, the hexagonal gridded coverage has a mean area of ~3,360 km^2 and produces a dam count of 92,459, whereas the triangulated tessellation has a smaller mean area of ~1,290 km^2 with a dam count of 92,373 (Table 1). The difference in total dam counts between these tessellations is only 86, which is relatively small compared to the overall number of dams. Although contrasting patterns are apparent visually, the results are not substantially different. These differences driven by tile geometry and feature count do influence point-in-polygon outcomes, as reflected in the visualizations. The hexagonal gridded coverage provides the most balanced representation, with limited fragmentation. Compared to the square grid, hexagons form uniform borders, creating different neighbor structures as emphasized in lecture.
+In choosing a tessellation, it is essential to understand the data being processed and how different spatial representations influence interpretation. The MAUP highlights that there is no one way to display data. Additionally, the Visvalingam simplification shows that reducing complexity can improve efficiency without influencing results. This is important for dam managers who rely on these patterns to make decisions, as different tessellations or boundary simplifications could shift clusters across jurisdictions. Overall, tessellation choice directly influences the interpretation and decisions made, in this case regarding dam management (Johnson 2026).
+
+- Johnson, M. (2026). Week 3-1: Spatial autocorrelation and tessellation effects. CSU 523C. https://mikejohnson51.github.io/csu-523c-2026/slides/week-3-1.html#/title-slide. 
 
 ---
 
@@ -600,6 +608,8 @@ Corner_Dams <- Dam_Join |>
   filter(n_tiles > 1) |>
   left_join(Dams_Name, by = "dam_id") |>
   st_as_sf()
+
+## Through omitting boundary and corner dams this shows how simplifying data can be helpful, but you need to understand what is being lost. These strict requirements could cause loss of essential data.
 ```
 
 ### Step 4.2
@@ -660,7 +670,7 @@ Write 2–3 sentences addressing:
    - Do dams cluster at boundaries preferentially, or are they randomly distributed?
    - What governance or management challenges might arise from dams at multi-agency (multi-tile) boundaries?
 
-> 
+> None of the dams across the United States fall at tessellation boundaries or multi-tile corners, meaning all dams are classified as interior features. Dams tend to cluster preferentially around major water bodies, such as the Mississippi River. Governance challenges at multi-agency boundaries could arise if one state controls a larger portion of water resources and may not effectively coordinate or negotiate with neighboring states that depend on those resources. 
 
 ---
 
@@ -702,37 +712,18 @@ cat("Vertices retained:", 100 * simplified_vertices / original_vertices, "%\n")
 
 **b.** Wrap your tessellation clipping in `system.time()` for both boundaries. Time the clipping of your Voronoi and triangulated tessellations:
 
-```{r}
-#| eval: false
-# Clipping with UNSIMPLIFIED boundary
-time_unsimplified <- system.time({
-  voronoi_unsimplified <- st_intersection(voronoi_grid, usa_unsimplified)
-  triangles_unsimplified <- st_intersection(triangulate_grid, usa_unsimplified)
-})
-
-# Clipping with SIMPLIFIED boundary (from Step 1.5)
-time_simplified <- system.time({
-  voronoi_simplified <- st_intersection(voronoi_grid, usa_simplified)
-  triangles_simplified <- st_intersection(triangulate_grid, usa_simplified)
-})
-
-cat("Unsimplified elapsed time:", time_unsimplified["elapsed"], "seconds\n")
-cat("Simplified elapsed time:", time_simplified["elapsed"], "seconds\n")
-cat("Speed-up factor:", time_unsimplified["elapsed"] / time_simplified["elapsed"], "x\n")
-```
+Speed-up factor:", time_unsimplified["elapsed"] / time_simplified["elapsed"], "x\n")
 
 ```{r}
 # Clipping with UNSIMPLIFIED boundary
 time_unsimplified <- system.time({
   voronoi_unsimplified <- st_intersection(County_Voronoi, Boundary_CONUS)
-  triangles_unsimplified <- st_intersection(County_Triangulated, Boundary_CONUS)
-})
+  triangles_unsimplified <- st_intersection(County_Triangulated, Boundary_CONUS)})
 
 # Clipping with SIMPLIFIED boundary
 time_simplified <- system.time({
   voronoi_simplified <- st_intersection(County_Voronoi, Boundary_CONUS2)
-  triangles_simplified <- st_intersection(County_Triangulated, Boundary_CONUS2)
-})
+  triangles_simplified <- st_intersection(County_Triangulated, Boundary_CONUS2)})
 
 cat("Unsimplified elapsed time:", time_unsimplified["elapsed"], "seconds\n")
 cat("Simplified elapsed time:", time_simplified["elapsed"], "seconds\n")
@@ -772,7 +763,9 @@ voronoi_compare <- compare_accuracy(voronoi_simplified, voronoi_unsimplified, "V
 triangles_compare <- compare_accuracy(triangles_simplified, triangles_unsimplified, "Triangles")
 
 bind_rows(voronoi_compare, triangles_compare) %>% 
-  knitr::kable(caption = "Simplification Impact on Geometry")
+  knitr::kable(caption = "Simplification Impact on Geometry") 
+
+## Table 2. Simplification showed minimal change to the geometry, with almost no change in total area (~0%). This indicates that this boundary preserves the data with limited complications.
 ```
 
 **b.** Check for **missing regions**: Did the simplified boundary omit important coastal or border areas? Visual check: overlay the clipped results and note any missing tiles around CONUS edges.
@@ -806,7 +799,11 @@ Write 3–4 paragraphs addressing:
 
 **d.** **Guidance for others**: Would you recommend simplification to other students working with US boundary data? If yes, what would you advise about the `keep` threshold? If no, why not?
 
->
+> The simplified boundary produced virtually no improvement in processing time compared to the unsimplified version. As mentioned in the lecture, processing time can vary based on computer performance and how recently the analysis has been run. Simplification can be useful when processing time is high, but for this dataset it does not appear to make a significant difference. Therefore, this step may not always be necessary.
+Additionally, the difference in total area between tessellations was negligible (~0%), further demonstrating minimal change (Table 2). The degree of simplification was limited in this analysis, reinforcing that it may not have been needed. The total area before simplification was 8,096,496 km^2 for Voronoi and 7,997,737 km^2 for triangles, while the simplified areas were 8,095,472 km^2 and 7,997,790 km^2, respectively. These differences (1,024 km^2 for Voronoi and -53 km^2 for triangles) are very small relative to the overall size (Table 2). This indicates that the Visvalingam simplification did not substantially affect area or tile count, allowing the data to be preserved. Using a keep value of 0.07 helped reduce boundary detail loss while maintaining data integrity, supporting its use based on the results in Table 2 (Johnson, 2026). These methods were therefore justified for this analysis.
+These results further indicate that choosing a boundary simplification requires careful evaluation to ensure data is retained. Larger or more complex datasets may benefit more from this step to improve computational efficiency. It is recommended that simplification be considered, but not automatically applied, as its usefulness depends on the specific dataset. For applications such as dam management, simplification should be used cautiously to ensure decisions are based on accurate spatial data. Overall, simplification can be beneficial, but it should be evaluated alongside unsimplified results before being applied in analysis.
+
+- Johnson, M. (2026). Week 3-1: Spatial autocorrelation and tessellation effects. CSU 523C. https://mikejohnson51.github.io/csu-523c-2026/slides/week-3-1.html#/title-slide.
 
 ---
 
@@ -845,49 +842,6 @@ For each tessellation, create a **binary neighbor matrix** where entry (i,j) = 1
 
 5. **Quick check**: `rowSums(neighbor_weights)` should be 1 (or 0 for isolated tiles).
 :::
-
-```{r}
-#| eval: false
-# STEP A: Create for your chosen tessellation (e.g., hex_grid_dams)
-# Assumes your aggregated tessellation has an ID column (e.g., tile_id) 
-# and dam count column (e.g., n)
-
-neighbor_matrix_hex <- st_touches(hex_grid_dams, sparse = FALSE) * 1
-diag(neighbor_matrix_hex) <- 0  # Exclude self-neighbors
-
-# Row-standardized weights (each row sums to 1)
-neighbor_weights_hex <- neighbor_matrix_hex / rowSums(neighbor_matrix_hex)
-neighbor_weights_hex[!is.finite(neighbor_weights_hex)] <- 0
-
-# Quick diagnostics
-cat("HEXAGON GRID:\n")
-cat("Number of tiles:", nrow(neighbor_matrix_hex), "\n")
-cat("Total edges (neighbor pairs):", sum(neighbor_matrix_hex) / 2, "\n")
-cat("Average neighbors per tile:", round(mean(rowSums(neighbor_matrix_hex)), 2), "\n")
-cat("Min/Max neighbors:", min(rowSums(neighbor_matrix_hex)), "/", max(rowSums(neighbor_matrix_hex)), "\n\n")
-
-# STEP B: Repeat for square grid
-neighbor_matrix_square <- st_touches(square_grid_dams, sparse = FALSE) * 1
-diag(neighbor_matrix_square) <- 0
-neighbor_weights_square <- neighbor_matrix_square / rowSums(neighbor_matrix_square)
-neighbor_weights_square[!is.finite(neighbor_weights_square)] <- 0
-
-cat("SQUARE GRID:\n")
-cat("Number of tiles:", nrow(neighbor_matrix_square), "\n")
-cat("Average neighbors per tile:", round(mean(rowSums(neighbor_matrix_square)), 2), "\n")
-cat("Min/Max neighbors:", min(rowSums(neighbor_matrix_square)), "/", max(rowSums(neighbor_matrix_square)), "\n\n")
-
-# STEP C: Repeat for Voronoi
-neighbor_matrix_vor <- st_touches(voronoi_dams, sparse = FALSE) * 1
-diag(neighbor_matrix_vor) <- 0
-neighbor_weights_vor <- neighbor_matrix_vor / rowSums(neighbor_matrix_vor)
-neighbor_weights_vor[!is.finite(neighbor_weights_vor)] <- 0
-
-cat("VORONOI:\n")
-cat("Number of tiles:", nrow(neighbor_matrix_vor), "\n")
-cat("Average neighbors per tile:", round(mean(rowSums(neighbor_matrix_vor)), 2), "\n")
-cat("Min/Max neighbors:", min(rowSums(neighbor_matrix_vor)), "/", max(rowSums(neighbor_matrix_vor)), "\n")
-```
 
 **Expected Observation**: Regular tessellations (hexagon, square) have _uniform_ neighbor counts (~6 for hex, ~4 for square, boundary tiles have fewer). Voronoi has _variable_ neighbor counts (often 3–8, rarely 1–15 for edge cases). **Why does this matter?** Neighbor structure directly affects Moran's I stability—uniform neighborhoods lead to more stable autocorrelation estimates.
 
@@ -974,79 +928,6 @@ ape::Moran.I(x = vector, weight = weight_matrix)
 :::
 
 ```{r}
-#| eval: false
-library(ape)
-
-# STEP A: HEX GRID - Extract dam counts
-dam_counts_hex <- hex_grid_dams$n  # Ensure column name matches your data
-
-# Compute Moran's I
-morans_hex <- ape::Moran.I(x = dam_counts_hex, weight = neighbor_weights_hex)
-
-cat("HEXAGON GRID RESULTS:\n")
-cat("Moran's I observed:", round(morans_hex$observed, 4), "\n")
-cat("Expected (random):", round(morans_hex$expected, 4), "\n")
-cat("P-value:", round(morans_hex$p.value, 4), "\n")
-if (morans_hex$p.value < 0.05) {
-  cat("✓ SIGNIFICANT positive autocorrelation (p < 0.05)\n")
-} else {
-  cat("✗ No significant autocorrelation\n")
-}
-cat("\n")
-
-# STEP B: SQUARE GRID
-dam_counts_sq <- square_grid_dams$n
-morans_sq <- ape::Moran.I(x = dam_counts_sq, weight = neighbor_weights_square)
-
-cat("SQUARE GRID RESULTS:\n")
-cat("Moran's I observed:", round(morans_sq$observed, 4), "\n")
-cat("P-value:", round(morans_sq$p.value, 4), "\n")
-cat("\n")
-
-# STEP C: VORONOI
-dam_counts_vor <- voronoi_dams$n
-morans_vor <- ape::Moran.I(x = dam_counts_vor, weight = neighbor_weights_vor)
-
-cat("VORONOI RESULTS:\n")
-cat("Moran's I observed:", round(morans_vor$observed, 4), "\n")
-cat("P-value:", round(morans_vor$p.value, 4), "\n")
-```
-
-**Assemble Summary Table** (use these results):
-
-```{r}
-#| eval: false
-morans_summary <- data.frame(
-  tessellation = c("Hexagon", "Square", "Voronoi"),
-  tiles_n = c(nrow(hex_grid_dams), nrow(square_grid_dams), nrow(voronoi_dams)),
-  morans_i = c(
-    round(morans_hex$observed, 4),
-    round(morans_sq$observed, 4),
-    round(morans_vor$observed, 4)
-  ),
-  p_value = c(
-    round(morans_hex$p.value, 4),
-    round(morans_sq$p.value, 4),
-    round(morans_vor$p.value, 4)
-  ),
-  avg_neighbors = c(
-    round(mean(rowSums(neighbor_matrix_hex)), 2),
-    round(mean(rowSums(neighbor_matrix_square)), 2),
-    round(mean(rowSums(neighbor_matrix_vor)), 2)
-  ),
-  significant = c(
-    ifelse(morans_hex$p.value < 0.05, "Yes", "No"),
-    ifelse(morans_sq$p.value < 0.05, "Yes", "No"),
-    ifelse(morans_vor$p.value < 0.05, "Yes", "No")
-  )
-)
-
-knitr::kable(morans_summary, 
-             caption = "Moran's I: Spatial Autocorrelation across Tessellations",
-             digits = 4)
-```
-
-```{r}
 # Hexagonal
 dam_counts_hex <- Dams_Hexagonal$n
 morans_hex <- ape::Moran.I(x = dam_counts_hex, weight = neighbor_weights_hex)
@@ -1114,11 +995,11 @@ knitr::kable(
 ## Interpretation Checklist
 
 Before writing your response, verify you can answer:
-- [ ] What is the range of Moran's I values across your 3 tessellations? (e.g., 0.32–0.41)
-- [ ] Are all results significant at p < 0.05? If not, which tessellation(s) show random distribution?
-- [ ] Which tessellation has the highest Moran's I? (This shows the strongest clustering signal.)
-- [ ] How many neighbors does each tessellation average? (From Step 6.1 diagnostics.)
-- [ ] Can you explain _why_ regular tessellations (hex/square) might differ from Voronoi in I values?
+- [X] What is the range of Moran's I values across your 3 tessellations? (e.g., 0.32–0.41)
+- [X] Are all results significant at p < 0.05? If not, which tessellation(s) show random distribution?
+- [X] Which tessellation has the highest Moran's I? (This shows the strongest clustering signal.)
+- [X] How many neighbors does each tessellation average? (From Step 6.1 diagnostics.)
+- [X] Can you explain _why_ regular tessellations (hex/square) might differ from Voronoi in I values?
 :::
 
 Write 2–3 paragraphs (aim for ~400 words) addressing the following explicitly:
@@ -1147,9 +1028,9 @@ Write 2–3 paragraphs (aim for ~400 words) addressing the following explicitly:
   - If policy cares about local projects: use smaller tessellations (hexagons, squares)
   - Your answer should identify which tessellation you'd recommend from Q3 and _why its scale aligns with decision-making units_
 
-```{r}
+> In evaluating the Moran’s I values among the three tessellations, they are all relatively like one another. The overall range is from 0.5884 to 0.6712, indicating a positive spatial correlation amongst the data. All values were also significant, with p-values equal to 0 for all tessellations. Therefore, the results suggest that the clustering of dams across different tessellations is not random, but rather specific to the landscape. The Moran’s I values also align with the structure of each tessellation, as the way each of the tiles relate to their neighbors is different. For instance, the hexagonal and square gridded coverages have similar I values, whereas the Voronoi tessellation has a value approximately 0.1 lower (Table 3). Although this difference is small, it is still important to note for this analysis. These results therefore clearly indicate that dam locations are chosen based on the underlying landscape characteristics of each region. This make sense as locations are close to rivers and other water bodies that will support certain sized dams.
+All values across the tessellations demonstrate that the same dam data can be interpreted differently, which is best illustrated by the Modifiable Areal Unit Problem (MAUP). This means that different management decisions or conclusions can be drawn from the same dataset. For example, one tessellation may indicate stronger clustering while another suggests weaker spatial patterns, even though both started with the same data. This could lead to conflicting interpretations if neighboring regions produce different, albeit valid, conclusions. Based on these results, the hexagonal gridded coverage is recommended due to its balanced neighbor structure and consistent representation of spatial patterns. This method also reduces fragmentation due to the shape of each neighbor’s alignment. It is important to consider how data scale and tessellation choice influence results to ensure the most appropriate method is used. Overall, selecting the most suitable tessellation helps reduce misinterpretation and supports more reliable management decisions.
 
-```
 
 ### Step 6.4 *(Graduate-Level Extension)*
 
@@ -1257,9 +1138,8 @@ cat("  Dam distribution is **RANDOM** (not spatially structured). No clustering 
 
 **Write 2–3 sentences summarizing your findings:**
 
-```{r}
+> Table 4. The Moran’s I are very different based on the different distance thresholds, indicating the importance of scale. There is no significance in the data at 25 km, whereas at 50 km and especially 100 km the relationship is significantly positive. This indicates the larger the scale, the more dam clustering becomes apparent.
 
-```
 
 ---
 
@@ -1341,6 +1221,8 @@ Map3 <- ggplot(tile_attributes) +
 Map1
 Map2
 Map3
+
+## Geographically, most of the oldest dams are in the upper East Coast where civilization first began in the United States. Dam surface area takes up most of the U.S., except the more remote areas in the western part of the country.
 ```
 
 ### Step 7.2
@@ -1363,92 +1245,7 @@ Many tiles may have **zero dams** (NAs for attributes like mean_year_completed, 
 This preserves statistical integrity: neighbors' contributions are computed correctly, but you only correlate where real observations exist.
 :::
 
-```{r}
-#| eval: false
-# STEP A: Prepare attributes with NA imputation
-# Using your hexagon tessellation from Q3 (or whichever you chose)
-
-# Attribute 1: Dam count (likely complete, but handle nulls just in case)
-dam_count <- hex_grid_dams$n
-dam_count[is.na(dam_count)] <- 0  # Count is 0 if no dams in tile
-
-# Attribute 2: Mean year completed (will have NAs for tiles with 0 dams)
-year_completed <- hex_grid_dams$mean_year_completed
-year_completed_impute <- ifelse(
-  is.na(year_completed),
-  mean(year_completed, na.rm = TRUE),  # Global mean
-  year_completed
-)
-valid_year <- !is.na(hex_grid_dams$mean_year_completed)  # Track original data
-
-# Attribute 3: Mean surface area
-surface_area <- hex_grid_dams$mean_surface_area
-surface_area_impute <- ifelse(
-  is.na(surface_area),
-  mean(surface_area, na.rm = TRUE),
-  surface_area
-)
-valid_area <- !is.na(hex_grid_dams$mean_surface_area)
-
-# STEP B: Compute spatial lags using imputed data
-# Reuse neighbor_weights_hex from Q6.1
-
-spatial_lag_count <- as.vector(neighbor_weights_hex %*% dam_count)
-spatial_lag_year <- as.vector(neighbor_weights_hex %*% year_completed_impute)
-spatial_lag_area <- as.vector(neighbor_weights_hex %*% surface_area_impute)
-
-# STEP C: Correlate original (non-imputed) values with spatial lag
-# Use logical flags to filter
-
-cor_count <- cor(dam_count, spatial_lag_count, use = "complete.obs")
-cor_year <- cor(
-  year_completed[valid_year],
-  spatial_lag_year[valid_year],
-  use = "complete.obs"
-)
-cor_area <- cor(
-  surface_area[valid_area],
-  spatial_lag_area[valid_area],
-  use = "complete.obs"
-)
-
-cat("Correlations between attributes and spatial lag:\n")
-cat("Dam count:", round(cor_count, 3), "\n")
-cat("Mean year completed:", round(cor_year, 3), "\n")
-cat("Mean surface area:", round(cor_area, 3), "\n")
-cat("\nInterpretation ranges:\n")
-cat("0.6–1.0: Strong spatial clustering\n")
-cat("0.3–0.6: Moderate spatial dependence\n")
-cat("0.0–0.3: Weak spatial structure\n")
-cat("Negative: Spatial anticorrelation (rare)\n")
-```
-
 **Summarize in a table**:
-
-```{r}
-#| eval: false
-attribute_spatial_dependence <- data.frame(
-  attribute = c("Dam Count", "Mean Year Completed", "Mean Surface Area"),
-  correlation_with_lag = c(
-    round(cor_count, 3),
-    round(cor_year, 3),
-    round(cor_area, 3)
-  ),
-  strength = c(
-    ifelse(cor_count > 0.6, "Strong", ifelse(cor_count > 0.3, "Moderate", "Weak")),
-    ifelse(cor_year > 0.6, "Strong", ifelse(cor_year > 0.3, "Moderate", "Weak")),
-    ifelse(cor_area > 0.6, "Strong", ifelse(cor_area > 0.3, "Moderate", "Weak"))
-  )
-)
-
-knitr::kable(
-  attribute_spatial_dependence,
-  caption = "Spatial Lag Correlation: Do Neighboring Tiles Have Similar Attributes?"
-)
-
-cat("\n→ If all correlations are > 0.5, strong spatial dependence is present.\n")
-cat("  This violates OLS independence assumption → spatial regression needed.\n")
-```
 
 ```{r}
 # STEP A: Prepare attributes with NA imputation
@@ -1542,110 +1339,9 @@ scale(x, center=TRUE, scale=TRUE)[, 1]
 Returns a numeric vector (not a matrix). Use `[, 1]` to extract it, or use `as.vector()` explicitly.
 :::
 
-```{r}
-#| eval: false
-# Using your hexagon tiles with mean_year_completed (or your chosen attribute)
-
-# STEP A: Standardize the original attribute (careful with NAs!)
-# Only standardize tiles with actual data (not imputed)
-year_data <- hex_grid_dams$mean_year_completed[valid_year]
-lag_data <- spatial_lag_year[valid_year]
-
-x_std <- scale(year_data, center = TRUE, scale = TRUE)[, 1]
-lag_std <- scale(lag_data, center = TRUE, scale = TRUE)[, 1]
-
-# STEP B: Create a data frame for plotting (only tiles with valid data)
-plot_data <- data.frame(
-  x_std = x_std,
-  lag_std = lag_std,
-  tile_id = which(valid_year)  # Index of valid tiles
-) %>%
-  mutate(
-    x_cat = ifelse(x_std > 0, "High", "Low"),
-    lag_cat = ifelse(lag_std > 0, "High", "Low"),
-    quadrant = paste(x_cat, lag_cat, sep = "-")
-  ) %>%
-  mutate(
-    quadrant = factor(quadrant, levels = c("High-High", "Low-Low", "High-Low", "Low-High"))
-  )
-
-# Count points in each quadrant
-quadrant_counts <- table(plot_data$quadrant)
-cat("Tiles by quadrant:\n")
-print(quadrant_counts)
-
-# STEP C: Create Moran scatterplot
-ggplot(plot_data, aes(x = x_std, y = lag_std, color = quadrant, fill = quadrant)) +
-  geom_point(size = 3, alpha = 0.65) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray40", linewidth = 0.5) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "gray40", linewidth = 0.5) +
-  # Add a regression line through origin (optional, illustrates positive slope)
-  geom_abline(intercept = 0, slope = 1, color = "gray50", linetype = "dotted", alpha = 0.5) +
-  scale_color_manual(
-    values = c(
-      "High-High" = "#e41a1c",
-      "Low-Low" = "#377eb8",
-      "High-Low" = "#ff7f00",
-      "Low-High" = "#4daf4a"
-    )
-  ) +
-  scale_fill_manual(
-    values = c(
-      "High-High" = "#e41a1c",
-      "Low-Low" = "#377eb8",
-      "High-Low" = "#ff7f00",
-      "Low-High" = "#4daf4a"
-    )
-  ) +
-  labs(
-    title = "Moran Scatterplot: Dam Age and Spatial Lag",
-    subtitle = "LISA (Local Indicators of Spatial Association) by Quadrant",
-    x = "Mean Dam Age (standardized)",
-    y = "Spatial Lag of Mean Dam Age (standardized)",
-    color = "Quadrant",
-    fill = "Quadrant",
-    caption = paste0(
-      "High-High (red): clusters of old dams | Low-Low (blue): clusters of young dams\n",
-      "High-Low (orange): isolated old regions | Low-High (green): isolated young regions"
-    )
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(size = 14, face = "bold"),
-    plot.caption = element_text(size = 9, hjust = 0, color = "gray50")
-  )
-```
-
 **Alternative: Map the quadrants geographically**
 
 If you want to see _where_ the clusters and outliers are:
-
-```{r}
-#| eval: false
-hex_grid_dams_for_map <- hex_grid_dams[valid_year, ] %>%
-  mutate(
-    x_std = x_std,
-    lag_std = lag_std,
-    quadrant = plot_data$quadrant
-  )
-
-ggplot(hex_grid_dams_for_map) +
-  geom_sf(aes(fill = quadrant), color = "white", size = 0.1) +
-  scale_fill_manual(
-    values = c(
-      "High-High" = "#e41a1c",
-      "Low-Low" = "#377eb8",
-      "High-Low" = "#ff7f00",
-      "Low-High" = "#4daf4a"
-    )
-  ) +
-  labs(
-    title = "Geographic Distribution of LISA Quadrants (Dam Age)",
-    fill = "Quadrant"
-  ) +
-  theme_minimal() +
-  theme(legend.position = "right")
-```
 
 ```{r}
 # STEP A: Standardize the original attribute and its spatial lag
@@ -1775,6 +1471,5 @@ This is the crux: **If dam attributes are spatially autocorrelated, OLS regressi
 
 **Closing sentence**: "Given evidence of spatial autocorrelation in dam attributes (r = X–Y), a spatial regression model is warranted for any subsequent analysis of dam characteristics. Standard OLS would underestimate uncertainty and potentially mislead policy decisions."
 
-```{r}
-
-```
+> Performing further statistical analysis on the dam dataset reveals strong spatial correlations. The spatial lag results show that dam counts are highly correlated (r = 0.836), and year completed also shows a strong relationship (r = 0.655), while surface area shows no meaningful correlation (r = 0). This suggests that dam size is not influenced by neighboring dams, whereas dam density and construction timing are related (Table 4). This pattern aligns with historical development, as populations expanded across the landscape and dams were constructed in response to settlement and water needs. Comparing results from the Moran scatterplot, clustering occurs differently across quadrants. High-High dams represent older dams located close together, while Low-Low dams are more sparsely distributed and tend to be more recent. High-High clusters are primarily found in the southeastern United States and near major water systems such as the Mississippi River, whereas Low-Low clusters occur more frequently in the western United States, where populations are more dispersed. The intermediate categories (High-Low and Low-High) show fewer observations, with most data points concentrated near the origin. These results, along with the spatial patterns observed in the map, demonstrate that dam clustering is geographically structured and closely tied to construction date.
+This indicates that the presence of strong spatial correlations in dam attributes violates the independence assumption of ordinary least squares (OLS) regression. As a result, OLS models may produce biased standard errors, unreliable parameter estimates, and misleading p-values. Given this evidence, a spatial regression model such as a spatial lag (SAR) model is more appropriate, as it accounts for relationships amongst neighboring data. Additionally, as clear throughout this analysis, the choice of tessellation influences results. Therefore, a grid like the hexagonal tessellation provides more consistent data for modeling. Incorporating spatial models alongside tessellation choices ensures higher accuracy in data analysis. Thus supports the need for reliable and thoroughly analyzed data for proper dam management.
