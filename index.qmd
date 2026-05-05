@@ -1,14 +1,42 @@
 ---
-title: "CSU 523C Portfolio"
+title: "CSU 523C Project"
+format:
+  html:
+    theme: minty
 ---
 
-# Welcome
+# GitHub Files
 
-This website contains my CSU 523C lab work.
+This website contains assignments completed for the CSU 523C course requirements.
 
 ## Labs
 
 - [Lab 1](lab-01.qmd)
+
+    - In this lab USGS river gauge data along the Colorado River Basin, United States was compiled and 
+      modeled.
+    
 - [Lab 2](lab-02.qmd)
+
+    - This week's lab focused on displaying U.S. population data based on the proximity the cities are to
+      international and national borders.
+    
 - [Lab 3](lab-03.qmd)
+
+    - This Lab focused on processing large-scale dam inventory data from across the United States. We 
+      evaluated different tessellated surfaces to reveal how the data interpretation differed amongst the 
+      methods.
+      
 - [Lab 4](lab-04.qmd)
+
+      - In Lab 4 we analyzed flood data near Palo, Iowa using different data visualization methods.
+      
+## Contact
+
+Jocelyn Cramer
+jocelyn.cramer@colostate.edu
+Master's student - Watershed Science
+[My GitHub](https://github.com/jocelynmcramer)
+
+![](IMG_1738.jpg)
+      
