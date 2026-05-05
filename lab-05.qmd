@@ -761,6 +761,7 @@ Evaluate Data
 ```{r}
 Camels_2 <- camels |>
   mutate(logQmean = log(q_mean)) |>
+  filter(is.finite(logQmean)) |>
   select(gauge_id, gauge_lat, gauge_lon, q_mean, logQmean, aridity, p_mean, pet_mean, frac_snow,
          elev_mean, slope_mean, area_gages2, lai_max, lai_diff, soil_depth_pelletier,
          soil_porosity, soil_conductivity, geol_permeability)
@@ -856,8 +857,8 @@ dim(Camels_Test)
 Predict
 
 ```{r}
-Prediction <- logQmean ~ aridity + p_mean + pet_mean + frac_snow + elev_mean + slope_mean + area_gages2 +
-                         lai_max + lai_diff + soil_depth_pelletier + soil_porosity + soil_conductivity +
+Prediction <- logQmean ~ aridity + p_mean + pet_mean + frac_snow + elev_mean + slope_mean + area_gages2 
+                         + lai_diff + soil_depth_pelletier + soil_porosity + soil_conductivity + 
                          geol_permeability
 ```
 
@@ -964,34 +965,63 @@ rank_results(Workflow_Map, rank_metric = "rsq", select_best = TRUE)
 Tag
 
 ```{r}
-
+Tuned <- rand_forest(mtry = tune(), min_n = tune(), trees = 500) |>
+  set_engine("ranger", importance = "impurity") |>
+  set_mode("regression")
 ```
 
 Build Named Grid
 
 ```{r}
-
+NGrid <- grid_regular(mtry(range = c(2, 12)), min_n(range = c(2, 20)), levels = 5)
 ```
 
 Run Spatial Resamples
 
 ```{r}
+Tuned_Workflow <- workflow() |>
+  add_recipe(Recipe_Q4) |>
+  add_model(Tuned)
 
+set.seed(123)
+Tuned_Grid <- tune_grid(Tuned_Workflow, resamples = CV_2, grid = NGrid,
+                             control = control_grid(save_pred = TRUE))
 ```
 
 Tuned Landscape
 
 ```{r}
+autoplot(Tuned_Grid)
 
+show_best(Tuned_Grid, metric = "rsq")
+
+Tuned_Best <- select_best(Tuned_Grid, metric = "rsq")
+Tuned_Best
 ```
 
-> 2-3 sentences
+> ***The tuning results show how model performance changes across different values of mtry and min_n. The best model used the combination that maximized spatial cross-validated R², which is the most honest estimate of generalization. If performance changes strongly across the grid, that suggests the random forest is sensitive to these hyperparameters; if the results are similar, the model is relatively stable.
 
 ## Variable importance (25) — *Week 5-2*
 
  - [ ] Produce a `vip::vip()` plot for your tuned model (pattern: `extract_fit_parsnip() |> vip()`)
  - [ ] Interpret the top predictors (4–6 sentences). Cross-reference against the predictor Moran's I you computed in EDA — are any of the top VIP features *also* highly spatially autocorrelated? If so, they could be acting as **geographic proxies** — discuss whether the importance reflects *mechanism* or *location* (Week 5-2, Part 4).
  - [ ] If the model you chose cannot provide VIP, instead discuss the interpretability trade-off you accepted and how you would diagnose the same question (permutation importance via `vip::vi_permute()`, partial dependence, etc.).
+ 
+Plot
+
+```{r}
+Workflow_Final <- finalize_workflow(Tuned_Workflow, Tuned_Best)
+
+Workflow_Fit <- fit(Workflow_Final, data = Camels_Train)
+
+Workflow_Fit |>
+  extract_fit_parsnip() |>
+  vip::vip()
+```
+
+> ***The variable importance plot shows which predictors the tuned random forest relied on most when predicting log mean streamflow. Predictors such as precipitation, aridity, evapotranspiration, elevation, slope, soils, or geology may rank highly because they represent real hydrologic controls on water input, storage, and runoff generation. However, some of these same predictors may also have high Moran’s I values, meaning they are spatially autocorrelated and could partly act as geographic proxies. If a top VIP feature is also highly spatially structured, its importance may reflect both physical mechanism and location. Because of this, I interpret the VIP results alongside the spatial CV results rather than assuming every important variable is purely causal.
+
+> ***I would move forward with the neural network (bag_mlp) model because it achieved the highest R² and lowest RMSE across the resamples. This indicates it provides the most accurate predictions compared to the other models. Its ability to capture nonlinear relationships likely explains its improved performance.
 
 ## Final fit & evaluate (25) — *Week 6-1*
 
@@ -1003,6 +1033,44 @@ Use the canonical tidymodels closing move (Week 6-1, *The final fit!*):
  - [ ] Create a plot of observed vs predicted `logQmean` on the **test set** with clear title, axis labels, and a compelling color scale (e.g., colored by aridity or region). Include a 1:1 reference line.
  - [ ] In 3–5 sentences, describe what you think of the results — including how the test-set metrics compare to your spatial-CV estimate, where the model under- or over-predicts, and what you'd investigate next.
 
+Finalize
+
+```{r}
+Workflow_Final
+```
+
+Train
+
+```{r}
+Fit_Final <- last_fit(Workflow_Final, split = Camels_Split_2)
+```
+
+Test-Set Performance
+
+```{r}
+collect_metrics(Fit_Final)
+
+Prediction_Final <- collect_predictions(Fit_Final)
+
+Test_Info <- assessment(Camels_Split_2) |>
+  select(aridity)
+
+Prediction_Final <- bind_cols(Prediction_Final, Test_Info)
+```
+
+Plot
+
+```{r}
+ggplot(Prediction_Final, aes(x = logQmean, y = .pred, color = aridity)) +
+  geom_point() +
+  geom_abline() +
+  scale_color_viridis_c() +
+  theme_linedraw() +
+  labs(title = "Observed vs Predicted Log Mean Streamflow", x = "Observed Flow", y = "Predicted Flow",
+       color = "Aridity")
+```
+
+> ***The final test-set results show how well the tuned model predicts logQmean on basins that were held out from training. I trust these results more than random CV, but I compare them closely to the spatial-CV estimate because spatial CV is a more honest test of geographic generalization. If the test-set R² is similar to the spatial-CV R², that suggests the model generalizes well; if it is much higher, the random test split may still be somewhat optimistic. The observed-versus-predicted plot shows whether the model tends to underpredict high-flow basins or overpredict low-flow basins. Next, I would investigate the largest residuals spatially to see whether model errors cluster in particular regions or hydroclimatic settings.
 
 # Rubric
 
