@@ -1,0 +1,23 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "CSU 523C Projects"
+  navbar:
+    left:
+      - text: Home
+        file: index.qmd
+      - text: Lab 1
+        file: lab-01.qmd
+      - text: Lab 2
+        file: lab-02.qmd
+      - text: Lab 3
+        file: lab-03.qmd
+      - text: Lab 4
+        file: lab-04.qmd
+
+format:
+  html:
+    theme: cosmo
+    toc: true

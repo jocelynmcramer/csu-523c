@@ -1,0 +1,14 @@
+---
+title: "CSU 523C Portfolio"
+---
+
+# Welcome
+
+This website contains my CSU 523C lab work.
+
+## Labs
+
+- [Lab 1](lab-01.qmd)
+- [Lab 2](lab-02.qmd)
+- [Lab 3](lab-03.qmd)
+- [Lab 4](lab-04.qmd)

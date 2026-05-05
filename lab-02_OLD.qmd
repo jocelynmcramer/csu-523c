@@ -1,9 +1,0 @@
----
-title: "Lab 2: Distances and Projections"
-subtitle: 'ESS 523c: Environmental Data Science Applications'
-author:
-  - name: Jocelyn Cramer
-    email: jocelyn.cramer@colostate.edu
-format: html
-output-dir: docs
----

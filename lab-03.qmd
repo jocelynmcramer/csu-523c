@@ -250,7 +250,7 @@ Simplified_Triangulated <- st_intersection(County_Triangulated, Boundary_CONUS2)
 
 ### Step 1.6
 
-The last step is to plot your tessellations. We don't want to write out 5 ggplots (or mindlessly copy and paste `r emo::ji("smile")`)
+The last step is to plot your tessellations. We don't want to write out 5 ggplots (or mindlessly copy and paste)
 
 Instead, lets make a function that takes an `sf` object as _arg1_ and a character string as _arg2_ and returns a ggplot object showing _arg1_ titled with _arg2_. 
 
@@ -1168,7 +1168,6 @@ Using your chosen tessellation from Q3, compute **mean and variance** of key dam
 Aggregate as follows:
 
 ```{r}
-#| eval: false
 # Step A: Join dams to tessellation tiles
 dams_by_tile <- st_join(Clip_Hexagonal, dams2) |>
   st_drop_geometry() |>
