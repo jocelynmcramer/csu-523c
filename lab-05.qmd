@@ -210,8 +210,8 @@ camels <- map(remote_files, read_delim, show_col_types = FALSE) |>
 
 # Question 1: Your Turn (15 points)
 
-- [X] Make sure all data and the PDF are downloaded into you data directory
-- [X] From the documentation PDF, report what `zero_q_freq` represents
+- [] Make sure all data and the PDF are downloaded into you data directory
+- [] From the documentation PDF, report what `zero_q_freq` represents
 
 > The field zero_q_freq represents the "frequency of days with q = 0mm/day" represented by a perccent (%) (camels_attribute_v2.0.pdf)
 
@@ -644,6 +644,28 @@ ggplot(rf_data, aes(x = logQmean, y = .pred, colour = aridity)) +
 
 That's the **minimum** end-to-end loop. Q4 asks you to do the full version: swap in spatial CV, tune the hyperparameters, and close with `last_fit()` — all patterns the lectures cover in detail.
 
+Question 2 Plot
+
+```{r}
+library(patchwork)
+
+Aridity <- ggplot(camels, aes(x = gauge_lon, y = gauge_lat)) +
+  borders("state", colour = "gray") +
+  geom_point(aes(color = aridity)) +
+  scale_color_viridis_c() +
+  ggthemes::theme_map() +
+  labs(title = "CAMELS Sites", color = "Aridity")
+
+Precipitation <- ggplot(camels, aes(x = gauge_lon, y = gauge_lat)) +
+  borders("state", colour = "gray") +
+  geom_point(aes(color = p_mean)) +
+  scale_color_viridis_c() +
+  ggthemes::theme_map() +
+  labs(title = "CAMELS Sites", color = "Mean Precipitation")
+
+Aridity + Precipitation
+```
+
 # Question 3: Your Turn! (40 points)
 
 Extend the `workflow_set` above (which already contains the linear model and the random forest) by adding two more models from the Week 6-1 zoo:
@@ -653,6 +675,45 @@ Extend the `workflow_set` above (which already contains the linear model and the
  - [ ] Add both to the workflow set and refit against the resamples
  - [ ] Compare all four (linear, random forest, xgboost, neural network) with `autoplot()` and `rank_results()`
  - [ ] Which of the four would you move forward with? Justify the pick in 2–3 sentences.
+
+XGBoost Regression Model
+
+```{r}
+XGB <- boost_tree() |>
+  set_engine("xgboost") |>
+  set_mode("regression")
+```
+
+Neural Netwrok Model
+
+```{r}
+Neural_Network <- bag_mlp() |>
+  set_engine("nnet") |>
+  set_mode("regression")
+```
+
+Add and Refit
+
+```{r}
+Workflow <- workflow_set(
+  preproc = list(rec = rec),
+  models = list(
+    lm = lm_model,
+    rf = rf_model,
+    xgb = XGB,
+    nn = Neural_Network)) |>
+  workflow_map("fit_resamples", resamples = camels_cv)
+```
+
+Compare
+
+```{r}
+autoplot(Workflow)
+
+rank_results(Workflow, rank_metric = "rsq", select_best = TRUE)
+```
+
+> ***I would move forward with the neural network (bag_mlp) model because it achieved the lowest RMSE and highest R-squared among the four models during cross-validation. This indicates it provides the most accurate and best-fitting predictions on unseen data. While the other models performed similarly, the neural network showed a slight but consistent improvement, making it the strongest candidate for further analysis.
 
 # Bridge to Q4: what the lectures cover
 
@@ -689,17 +750,157 @@ This question asks you to apply the full toolkit from Week 5 and Week 6: EDA, re
  - [ ] Create an initial split with 75% used for training and 25% for testing. Consider whether stratification (e.g., by `aridity` quartile or hydrologic class) is appropriate and **explain your choice**.
  - [ ] Extract your training and testing sets
 
+Set Seed
+
+```{r}
+set.seed(123)
+```
+
+Evaluate Data
+
+```{r}
+Camels_2 <- camels |>
+  mutate(logQmean = log(q_mean)) |>
+  select(gauge_id, gauge_lat, gauge_lon, q_mean, logQmean, aridity, p_mean, pet_mean, frac_snow,
+         elev_mean, slope_mean, area_gages2, lai_max, lai_diff, soil_depth_pelletier,
+         soil_porosity, soil_conductivity, geol_permeability)
+
+skimr::skim(Camels_2)
+visdat::vis_dat(Camels_2)
+```
+
+> *** The skim and visdat summaries show that the CAMELS data are mostly numeric predictors, with gauge ID acting as an identifier and latitude/longitude providing spatial location. Some predictors contain missing values, so the recipe should include imputation rather than dropping many rows. Several hydrologic variables, especially q_mean, precipitation, aridity, basin area, and permeability, are right-skewed, which supports using log transformations. Because the dataset is spatial, latitude and longitude should be kept for spatial cross-validation, but I will be cautious about using them directly as predictors because they can act as geographic proxies.
+
+Visualize
+
+```{r}
+Plot1 <- ggplot(Camels_2, aes(x = q_mean)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Mean Streamflow", x = "Q_Mean", y = "Count") +
+  theme_linedraw()
+
+Plot2 <- ggplot(Camels_2, aes(x = logQmean)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Log Mean Streamflow", x = "Log(Q_Mean)", y = "Count") +
+  theme_linedraw()
+
+Plot3 <- ggplot(Camels_2, aes(x = aridity)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Aridity", x = "Aridity", y = "Count") +
+  theme_linedraw()
+
+Plot4 <- ggplot(Camels_2, aes(x = p_mean)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Distribution of Mean Precipitation", x = "P_Mean", y = "Count") +
+  theme_linedraw()
+
+(Plot1 + Plot2) / (Plot3 + Plot4)
+```
+
+>
+
+**Optional**
+
+```{r}
+library(ape)
+
+Predictors <- Camels_2 |>
+  select(where(is.numeric)) |>
+  select(-q_mean, -logQmean, -gauge_lat, -gauge_lon)
+
+Coordinates <- Camels_2 |>
+  select(gauge_lon, gauge_lat) |>
+  as.matrix()
+
+Distance_Matrix <- as.matrix(dist(Coordinates))
+Weight_1 <- 1 / Distance_Matrix
+diag(Weight_1) <- 0
+Weight_1[is.infinite(Weight_1)] <- 0
+
+Map_Matrix <- map_dfr(names(Predictors), function(var) {
+  x <- Camels_2[[var]]
+  keep <- complete.cases(x, Weight_1)
+  moran <- ape::Moran.I(x, Weight_1)
+  tibble(predictor = var, moran_i = moran$observed, expected = moran$expected, p_value = moran$p.value)})
+
+Map_Matrix |>
+  arrange(desc(moran_i))
+```
+
+Infinite Splits
+
+```{r}
+Camels_2 <- Camels_2 |>
+  mutate(Aridity_Camels = ntile(aridity, 4))
+
+Camels_Split_2 <- initial_split(Camels_2, prop = 0.75, strata = Aridity_Camels)
+```
+
+Extract Data
+
+```{r}
+Camels_Train <- training(Camels_Split_2)
+Camels_Test  <- testing(Camels_Split_2)
+
+dim(Camels_Train)
+dim(Camels_Test)
+```
+>
+
 ## Recipe (30) — *Week 5-1*
 
  - [ ] Define a formula you want to use to predict `logQmean`
  - [ ] In 5–7 sentences, justify your predictor choice. Consult the downloaded PDF; ground **each** recipe step (log, normalize, interact, naomit, impute, ...) in what the EDA above showed.
  - [ ] Build a recipe that handles those predictors. Your recipe should contain **at least three** `step_*` calls beyond the formula, and each should be there for a reason you can name.
 
+Predict
+
+```{r}
+Prediction <- logQmean ~ aridity + p_mean + pet_mean + frac_snow + elev_mean + slope_mean + area_gages2 +
+                         lai_max + lai_diff + soil_depth_pelletier + soil_porosity + soil_conductivity +
+                         geol_permeability
+```
+
+> ***I chose predictors that represent climate, topography, vegetation, soil, and geology because mean streamflow is controlled by both water input and watershed storage or drainage characteristics. Climate variables such as p_mean, pet_mean, aridity, and frac_snow describe water supply and atmospheric demand, which should strongly influence runoff. Topographic variables like elev_mean, slope_mean, and area_gages2 help describe basin size and landscape position, which affect how water moves through the catchment. Vegetation variables such as forest_frac, lai_max, and lai_diff represent land cover and seasonal vegetation patterns that influence evapotranspiration. Soil and geology variables such as soil_depth_pelletier, soil_porosity, soil_conductivity, and geol_permeability describe storage and infiltration capacity. The EDA showed several variables are skewed and some have missing values, so the recipe uses imputation, log transforms, and normalization. I also included interaction terms because climate variables like precipitation and aridity likely influence streamflow jointly rather than independently.
+
+Build Recipe
+
+```{r}
+Recipe_Q4 <- recipe(Prediction, data = Camels_Train) |>
+  step_impute_median(all_numeric_predictors()) |>
+  step_log(p_mean, pet_mean, aridity, area_gages2, soil_conductivity, geol_permeability, offset = 1) |>
+  step_interact(terms = ~ p_mean:aridity + p_mean:pet_mean) |>
+  step_normalize(all_numeric_predictors()) |>
+  step_zv(all_predictors())
+```
+
 ## Define 3 models (30) — *Week 6-1*
 
  - [ ] Define a random forest model using the `rand_forest` function (engine `ranger`, mode `regression`)
  - [ ] Define two other models of your choice. The Week 6-1 zoo (`linear_reg`, `boost_tree`, `svm_rbf`, `svm_poly`, `mlp`, `bag_mlp`, `decision_tree`) is a good menu — the comparison table in that deck summarizes strengths and weaknesses.
  - [ ] For each model, briefly note (one sentence) why it's a reasonable candidate for this regression problem — what kind of structure does it capture?
+ 
+Random Forest Model
+
+```{r}
+Random_Forest <- rand_forest() |>
+  set_engine("ranger", importance = "impurity") |>
+  set_mode("regression")
+```
+
+2 Other Models: 
+
+```{r}
+XGB_Model <- boost_tree() |>
+  set_engine("xgboost") |>
+  set_mode("regression")
+
+LM_Model <- linear_reg() |>
+  set_engine("lm") |>
+  set_mode("regression")
+```
+
+> ***Random forest is a strong candidate because it can capture nonlinear relationships and interactions between hydrologic variables without requiring them to be explicitly specified. XGBoost is useful because boosted trees improve predictive performance by iteratively correcting errors and modeling complex nonlinear patterns. The linear model provides a simple baseline that assumes linear relationships, making it useful for comparison and interpretation against more flexible models.
 
 ## Workflow set — compare with *honest* CV (35) — *Week 5-2*
 
@@ -710,6 +911,48 @@ With your preprocessing steps and models defined, build a `workflow_set` and com
  - [ ] Use `autoplot()` and `rank_results()` to compare the models under each scheme
  - [ ] Describe the gap (5–7 sentences): which model wins, how much does performance drop when you move from random to spatial CV, and which number do you trust as your generalization estimate? What does the spread of per-fold metrics tell you about *where* your model struggles? Recall from lecture that a **small** gap is a signal that your predictors carry real transferable signal — not a failed diagnostic.
 
+10-Fold and Spatial Block
+
+```{r}
+library(spatialsample)
+library(sf)
+
+set.seed(123)
+CV <- vfold_cv(Camels_Train, v = 10)
+
+Camels_Train_2 <- Camels_Train |>
+  st_as_sf(coords = c("gauge_lon", "gauge_lat"), crs = 4326)
+
+set.seed(123)
+CV_2 <- spatial_block_cv(Camels_Train_2,v = 10)
+```
+
+Fit Workflow
+
+```{r}
+Workflow_2 <- workflow_set(
+  preproc = list(rec = Recipe_Q4),
+  models = list(rf = Random_Forest, xgb = XGB_Model, lm = LM_Model))
+
+Workflow_Random <- Workflow_2 |>
+  workflow_map("fit_resamples", resamples = CV)
+
+Workflow_Map <- Workflow_2 |>
+  workflow_map("fit_resamples", resamples = CV_2)
+```
+
+Compare Models
+
+```{r}
+autoplot(Workflow_Random)
+rank_results(Workflow_Random, rank_metric = "rsq", select_best = TRUE)
+
+autoplot(Workflow_Map)
+rank_results(Workflow_Map, rank_metric = "rsq", select_best = TRUE)
+```
+
+> Under random cross-validation, the random forest model achieved the highest R², followed closely by XGBoost, while the linear model performed the worst. However, when switching to spatial cross-validation, all models experienced a noticeable drop in performance, with R² decreasing by approximately 0.05–0.10. This drop indicates that some of the predictive power in the random CV setup was due to spatial proximity rather than fully transferable relationships. Despite the decrease, the random forest model remained the top-performing model, suggesting it captures meaningful nonlinear structure in the data. The spatial CV results provide a more honest estimate of generalization performance, so I trust those values more than the random CV results. The variation across folds in the spatial CV results suggests that model performance differs by region, indicating that certain geographic areas are more difficult to predict. Overall, the relatively moderate drop between random and spatial CV suggests that the predictors still carry real, transferable hydrologic signal.
+
 ## Tune the best model (25) — *Week 6-1*
 
  - [ ] Tag **at least two** hyperparameters with `tune()` in your chosen model specification
@@ -717,6 +960,32 @@ With your preprocessing steps and models defined, build a `workflow_set` and com
  - [ ] Run `tune_grid()` against your **spatial** resamples with `control_grid(save_pred = TRUE)`
  - [ ] Show the tuning landscape with `autoplot()` and identify the best combination with `show_best()` / `select_best()`
  - [ ] In 2–3 sentences, describe which hyperparameters mattered most and what you learned about the model's sensitivity
+
+Tag
+
+```{r}
+
+```
+
+Build Named Grid
+
+```{r}
+
+```
+
+Run Spatial Resamples
+
+```{r}
+
+```
+
+Tuned Landscape
+
+```{r}
+
+```
+
+> 2-3 sentences
 
 ## Variable importance (25) — *Week 5-2*
 
