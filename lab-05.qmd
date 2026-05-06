@@ -1,12 +1,10 @@
 ---
-title: 'Lab 5: Machine Learning in Hydrology'
-name: Jocelyn Cramer
+title: "Lab 5: Machine Learning in Hydrology"
+author: "Jocelyn Cramer"
+subtitle: "Using Tidymodels & CAMELS Data"
 format:
-   html:
+  html:
     toc: true
-    include-before-body: ../slides/header.html
-    include-after-body:  ../slides/footer-annotations.html
-subtitle: 'Using Tidymodels & CAMELS Data'
 ---
 
 ```{r}

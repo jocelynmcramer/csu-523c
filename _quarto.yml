@@ -16,6 +16,8 @@ website:
         file: lab-03.qmd
       - text: Lab 4
         file: lab-04.qmd
+      - text: Lab 5
+        file: lab-05.qmd
 
 format:
   html:
