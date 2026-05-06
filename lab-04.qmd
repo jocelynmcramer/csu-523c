@@ -1,6 +1,7 @@
 ---
 title: 'Lab 4: Rasters & Remote Sensing'
 subtitle: 'Palo Iowa Flooding'
+author: "Jocelyn Cramer"
 format:
   html:
     toc: true
