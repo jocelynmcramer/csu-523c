@@ -185,7 +185,7 @@ d. Once downloaded, the data can be read it into R using `readr::read_delim()`, 
 
 ```{r}
 # Read and merge data
-camels <- map(local_files, read_delim, show_col_types = FALSE) 
+camels <- map(local_files, readr::read_delim, show_col_types = FALSE) 
 ```
 
 e. This gives us a list of data.frames, one for each file that we want to merge into a single table. So far in class we have focused on *_join functions to merge data based on a primary and foreign key relationship.
@@ -203,7 +203,7 @@ Alternatively, we could have read straight form the urls. Strongly consider the 
 
 ```{r}
 # Read and merge data
-camels <- map(remote_files, read_delim, show_col_types = FALSE) |> 
+camels <- map(remote_files, readr::read_delim, show_col_types = FALSE) |> 
   power_full_join(by = 'gauge_id')
 ```
 :::
@@ -665,6 +665,7 @@ Precipitation <- ggplot(camels, aes(x = gauge_lon, y = gauge_lat)) +
 
 Aridity + Precipitation
 ```
+> Question 2 plots show aridity and mean precipitation across the United States. Areas of lower precipitation are subject to high aridity whereas locations with high precipitation see lower aridity. This makes sense that there may be a correlation between these two parameters.
 
 # Question 3: Your Turn! (40 points)
 
@@ -684,7 +685,7 @@ XGB <- boost_tree() |>
   set_mode("regression")
 ```
 
-Neural Netwrok Model
+Neural Network Model
 
 ```{r}
 Neural_Network <- bag_mlp() |>
@@ -695,13 +696,8 @@ Neural_Network <- bag_mlp() |>
 Add and Refit
 
 ```{r}
-Workflow <- workflow_set(
-  preproc = list(rec = rec),
-  models = list(
-    lm = lm_model,
-    rf = rf_model,
-    xgb = XGB,
-    nn = Neural_Network)) |>
+Workflow <- workflow_set(preproc = list(rec = rec),
+                         models = list(lm = lm_model, rf = rf_model, xgb = XGB, nn = Neural_Network)) |>
   workflow_map("fit_resamples", resamples = camels_cv)
 ```
 
@@ -713,7 +709,7 @@ autoplot(Workflow)
 rank_results(Workflow, rank_metric = "rsq", select_best = TRUE)
 ```
 
-> ***I would move forward with the neural network (bag_mlp) model because it achieved the lowest RMSE and highest R-squared among the four models during cross-validation. This indicates it provides the most accurate and best-fitting predictions on unseen data. While the other models performed similarly, the neural network showed a slight but consistent improvement, making it the strongest candidate for further analysis.
+> Out of the four methods, I recommend moving forward with the neural network (bag_mlp) model. This model produced the highest r-squared value and the lowest RMSE, while the other methods performed more similarly to one another. This improvement suggests that the neural network provided a better fit, making it the best choice for this analysis.
 
 # Bridge to Q4: what the lectures cover
 
@@ -770,7 +766,7 @@ skimr::skim(Camels_2)
 visdat::vis_dat(Camels_2)
 ```
 
-> *** The skim and visdat summaries show that the CAMELS data are mostly numeric predictors, with gauge ID acting as an identifier and latitude/longitude providing spatial location. Some predictors contain missing values, so the recipe should include imputation rather than dropping many rows. Several hydrologic variables, especially q_mean, precipitation, aridity, basin area, and permeability, are right-skewed, which supports using log transformations. Because the dataset is spatial, latitude and longitude should be kept for spatial cross-validation, but I will be cautious about using them directly as predictors because they can act as geographic proxies.
+> Through the skimr and visdat analysis, it is apparent that most of the CAMELS dataset consists of numeric variables related to watershed characteristics such as LAI, soil consistency, precipitation, and streamflow. The only character-type variable is gauge_id, which is used to identify each watershed or region of interest. The skimr output also shows that there are no missing values in the selected predictors, meaning the dataset is complete and suitable for this analysis. Lastly, the histograms produced for several variables indicate right-skewed distributions, which justifies the use of log transformations and/or normalization steps within the recipe.
 
 Visualize
 
@@ -798,7 +794,7 @@ Plot4 <- ggplot(Camels_2, aes(x = p_mean)) +
 (Plot1 + Plot2) / (Plot3 + Plot4)
 ```
 
->
+> Each plot shows minor skewing, further emphasizing the need for transforming the dataset.
 
 **Optional**
 
@@ -846,7 +842,7 @@ Camels_Test  <- testing(Camels_Split_2)
 dim(Camels_Train)
 dim(Camels_Test)
 ```
->
+> Proper splitting of the data was performed.
 
 ## Recipe (30) — *Week 5-1*
 
@@ -857,12 +853,13 @@ dim(Camels_Test)
 Predict
 
 ```{r}
-Prediction <- logQmean ~ aridity + p_mean + pet_mean + frac_snow + elev_mean + slope_mean + area_gages2 
-                         + lai_diff + soil_depth_pelletier + soil_porosity + soil_conductivity + 
-                         geol_permeability
+Prediction <- logQmean ~ aridity + p_mean + pet_mean + frac_snow +
+              elev_mean + slope_mean + area_gages2 +
+              lai_diff + soil_depth_pelletier + soil_porosity +
+              soil_conductivity + geol_permeability
 ```
 
-> ***I chose predictors that represent climate, topography, vegetation, soil, and geology because mean streamflow is controlled by both water input and watershed storage or drainage characteristics. Climate variables such as p_mean, pet_mean, aridity, and frac_snow describe water supply and atmospheric demand, which should strongly influence runoff. Topographic variables like elev_mean, slope_mean, and area_gages2 help describe basin size and landscape position, which affect how water moves through the catchment. Vegetation variables such as forest_frac, lai_max, and lai_diff represent land cover and seasonal vegetation patterns that influence evapotranspiration. Soil and geology variables such as soil_depth_pelletier, soil_porosity, soil_conductivity, and geol_permeability describe storage and infiltration capacity. The EDA showed several variables are skewed and some have missing values, so the recipe uses imputation, log transforms, and normalization. I also included interaction terms because climate variables like precipitation and aridity likely influence streamflow jointly rather than independently.
+> The predictors chosen for this analysis represent watershed storage and hydrologic characteristics related to climate, vegetation, soils, topography, and geology. These variables include aridity, precipitation (rain and snow), PET, elevation, slope, basin area, LAI, soil depth, soil porosity, soil conductivity, and geologic permeability. Based on the EDA, several predictors showed right-skewed distributions, justifying the use of log transformations and normalization within the recipe. Although the selected variables did not contain missing values, preprocessing steps were still necessary to ensure the workflow remained usable for modeling. Interactive parameters were also included because predictors such as aridity and precipitation, will not influence streamflow separately. Together, these predictors will improve the model’s ability to capture the complex hydrologic relationships across the CAMELS basins.
 
 Build Recipe
 
@@ -901,7 +898,7 @@ LM_Model <- linear_reg() |>
   set_mode("regression")
 ```
 
-> ***Random forest is a strong candidate because it can capture nonlinear relationships and interactions between hydrologic variables without requiring them to be explicitly specified. XGBoost is useful because boosted trees improve predictive performance by iteratively correcting errors and modeling complex nonlinear patterns. The linear model provides a simple baseline that assumes linear relationships, making it useful for comparison and interpretation against more flexible models.
+> The random forest model was selected because it can capture complex nonlinear interactions within hydrologic data without definition. The XGBoost model was chosen because this method improves predictive accuracy through error correction, while also handling nonlinear relationships. Lastly, the linear model was included as a simpler approach to compare how well linear relationships explain streamflow relative to the other methods.
 
 ## Workflow set — compare with *honest* CV (35) — *Week 5-2*
 
@@ -952,7 +949,7 @@ autoplot(Workflow_Map)
 rank_results(Workflow_Map, rank_metric = "rsq", select_best = TRUE)
 ```
 
-> Under random cross-validation, the random forest model achieved the highest R², followed closely by XGBoost, while the linear model performed the worst. However, when switching to spatial cross-validation, all models experienced a noticeable drop in performance, with R² decreasing by approximately 0.05–0.10. This drop indicates that some of the predictive power in the random CV setup was due to spatial proximity rather than fully transferable relationships. Despite the decrease, the random forest model remained the top-performing model, suggesting it captures meaningful nonlinear structure in the data. The spatial CV results provide a more honest estimate of generalization performance, so I trust those values more than the random CV results. The variation across folds in the spatial CV results suggests that model performance differs by region, indicating that certain geographic areas are more difficult to predict. Overall, the relatively moderate drop between random and spatial CV suggests that the predictors still carry real, transferable hydrologic signal.
+> The random cross-validation results revealed that the random forest model (rand_forest) again produced the highest r-squared and lowest RMSE compared to the other three methods. Although the XGBoost (boost_tree) model produced values close to the random forest results, the linear model (linear_reg) generated values that differed substantially from the other two methods. This makes sense because the linear model is less effective at capturing the nonlinear relationships commonly found in hydrologic data. Comparing these results to the spatial cross-validation results, the values for all models shifted and became closer together. This indicates that spatial influences were present that were not fully captured in the random approach, meaning certain watersheds may be more difficult to predict than others. Even with these shifts, the random forest model remained the best-performing method and would still be my recommendation for this type of dataset. Overall, using either the random or spatial cross-validation approach improves the reliability of identifying hydrologic signals within the environment.
 
 ## Tune the best model (25) — *Week 6-1*
 
@@ -999,7 +996,7 @@ Tuned_Best <- select_best(Tuned_Grid, metric = "rsq")
 Tuned_Best
 ```
 
-> ***The tuning results show how model performance changes across different values of mtry and min_n. The best model used the combination that maximized spatial cross-validated R², which is the most honest estimate of generalization. If performance changes strongly across the grid, that suggests the random forest is sensitive to these hyperparameters; if the results are similar, the model is relatively stable.
+> The tuning results showed that the min_n hyperparameter had a noticeable influence on model performance, with smaller to moderate node sizes generally outperforming larger values such as 15–20. The mtry parameter also affected performance, with moderate numbers of randomly selected predictors producing the highest r-squared and lowest RMSE values. Overall, the small changes across the tuning grid suggest that the random forest model is stable and not overly sensitive to minor hyperparameter adjustments.
 
 ## Variable importance (25) — *Week 5-2*
 
@@ -1019,9 +1016,9 @@ Workflow_Fit |>
   vip::vip()
 ```
 
-> ***The variable importance plot shows which predictors the tuned random forest relied on most when predicting log mean streamflow. Predictors such as precipitation, aridity, evapotranspiration, elevation, slope, soils, or geology may rank highly because they represent real hydrologic controls on water input, storage, and runoff generation. However, some of these same predictors may also have high Moran’s I values, meaning they are spatially autocorrelated and could partly act as geographic proxies. If a top VIP feature is also highly spatially structured, its importance may reflect both physical mechanism and location. Because of this, I interpret the VIP results alongside the spatial CV results rather than assuming every important variable is purely causal.
+> The variable importance plot shows that the parameters of precipitation, aridity, and evapotranspiration were the most reliable predictors in the random forest model for predicting streamflow. Due to these parameters’ influence on how water enters and moves throughout the watershed, this result is expected. However, the Moran’s I analysis also showed that several of these predictors, including precipitation and aridity, were spatially autocorrelated. This suggests that some of the predictor importance may partially reflect geographic location in addition to true hydrologic processes. Because nearby watersheds often share similar climate and landscape characteristics, these variables can act as geographic proxies. Despite this, the model still showed strong performance under spatial cross-validation, suggesting that the predictors are capturing hydrology without solely  relying on location.
 
-> ***I would move forward with the neural network (bag_mlp) model because it achieved the highest R² and lowest RMSE across the resamples. This indicates it provides the most accurate predictions compared to the other models. Its ability to capture nonlinear relationships likely explains its improved performance.
+> Model provided VIP.
 
 ## Final fit & evaluate (25) — *Week 6-1*
 
@@ -1066,11 +1063,11 @@ ggplot(Prediction_Final, aes(x = logQmean, y = .pred, color = aridity)) +
   geom_abline() +
   scale_color_viridis_c() +
   theme_linedraw() +
-  labs(title = "Observed vs Predicted Log Mean Streamflow", x = "Observed Flow", y = "Predicted Flow",
+  labs(title = "Observed vs Predicted Log Mean Streamflow", x = "Log Observed Flow", y = "Log Predicted Flow",
        color = "Aridity")
 ```
 
-> ***The final test-set results show how well the tuned model predicts logQmean on basins that were held out from training. I trust these results more than random CV, but I compare them closely to the spatial-CV estimate because spatial CV is a more honest test of geographic generalization. If the test-set R² is similar to the spatial-CV R², that suggests the model generalizes well; if it is much higher, the random test split may still be somewhat optimistic. The observed-versus-predicted plot shows whether the model tends to underpredict high-flow basins or overpredict low-flow basins. Next, I would investigate the largest residuals spatially to see whether model errors cluster in particular regions or hydroclimatic settings.
+> The final results reveal that the tuned random forest model predicts log mean streamflow well for the watersheds that were not included in the training dataset. Because the model performed consistently across different locations, this suggests that varying geographic regions did not strongly reduce predictability. Specifically, the model appears to perform best for mid-range streamflow values compared to the lowest and highest observed flows. One notable observation is that many of the watersheds with larger residuals also correspond to lower aridity values, which may warrant additional investigation within this dataset. The models performed well, although some limitations likely remain due to the availability and quality of the input predictors.
 
 # Rubric
 

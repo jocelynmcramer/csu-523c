@@ -1,11 +1,11 @@
 ---
-title: "CSU 523C Project"
+title: "Colorado State University 523C Course"
 format:
   html:
-    theme: minty
+    theme: yeti
 ---
 
-# GitHub Files
+# GitHub Projects
 
 This website contains assignments completed for the CSU 523C course requirements.
 
@@ -29,14 +29,15 @@ This website contains assignments completed for the CSU 523C course requirements
       
 - [Lab 4](lab-04.qmd)
 
-      - In Lab 4 we analyzed flood data near Palo, Iowa using different data visualization methods.
+    - In Lab 4 we analyzed flood data near Palo, Iowa using different data visualization methods.
+
+- [Lab 5](lab-05.qmd) 
+
+    - Lab 5 involved modeling streamflow data using differnt modeling methods and parameters from the watersheds.
       
 ## Contact
 
-Jocelyn Cramer
-jocelyn.cramer@colostate.edu
-Master's student - Watershed Science
-[My GitHub](https://github.com/jocelynmcramer)
+Jocelyn Cramer, jocelyn.cramer@colostate.edu, Master's student - Watershed Science. [My GitHub](https://github.com/jocelynmcramer)
 
-![](IMG_1738.jpg)
+![](IMG_1738.jpg){width=200px}
       
