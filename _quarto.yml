@@ -9,15 +9,15 @@ website:
       - text: Home
         file: index.qmd
       - text: Lab 1
-        file: lab-01.qmd
+        file: lab-01.html
       - text: Lab 2
-        file: lab-02.qmd
+        file: lab-02.html
       - text: Lab 3
-        file: lab-03.qmd
+        file: lab-03.html
       - text: Lab 4
-        file: lab-04.qmd
+        file: lab-04.html
       - text: Lab 5
-        file: lab-05.qmd
+        file: lab-05.html
 
 format:
   html:
