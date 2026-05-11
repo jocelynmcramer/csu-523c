@@ -18,6 +18,8 @@ website:
         file: lab-04.html
       - text: Lab 5
         file: lab-05.html
+      - text: Lab 6
+        file: lab-06.html
 
 format:
   html:

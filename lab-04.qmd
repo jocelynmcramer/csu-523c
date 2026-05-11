@@ -5,6 +5,8 @@ author: "Jocelyn Cramer"
 format:
   html:
     toc: true
+render: lab-04.qmd
+resources: "!lab-04_files/"
 ---
 
 # Background
@@ -20,8 +22,6 @@ We will use the `terra` and `rstac` packages - along with our understanding of r
 ## Libraries
 
 ```{r}
-#| echo: true
-#| message: false
 library(rstac) # STAC API
 library(terra) # Raster Data handling
 library(sf) # Vector data processing
@@ -66,9 +66,9 @@ If you go to this [link](https://planetarycomputer.microsoft.com/api/stac/v1) yo
 
 Within R, we can open a connection to this endpoint with the `stac` function:
 
-```{r}
+```{r, eval = FALSE}
 # Open a connection to the MPC STAC API
-stac_query <- stac("https://planetarycomputer.microsoft.com/api/stac/v1")
+(stac_query <- stac("https://planetarycomputer.microsoft.com/api/stac/v1"))
 ```
 
 That connection will provide an open entry to ALL data hosted by MPC. The `stac_search` function allows us to reduce the catalog to assets that match certain criteria (just like `dplyr::filter` reduces a `data.frame`). The `get_request()` function sends your search to the STAC API returning the metadata about the objects that match a criteria. The service implementation at MPC sets a return limit of 250 items (but it could be overridden with the limit parameter).
@@ -81,7 +81,7 @@ With that, we are ready to download the data using `assets_download()`. In total
 
 For this lab, lets just get the first 6 bands. Assets are extracted from a STAC item by the asset name (look at the print statements of the stac_query). Let's define a vector of the assets we want:
 
-```{r}
+```{r, eval = FALSE}
 # Bands 1-6
 bands <- c('coastal', 'blue', 'green', 'red', 'nir08', 'swir16')
 ```
@@ -98,13 +98,17 @@ With a set of local files, you can create a raster object! Remember your files n
  - The `setNames()` function will set the names of the bands to the names we defined above.
  
 ```{r}
-# delete folder if it exists (to start fresh)
+# Start fresh
 unlink("lab-04_files", recursive = TRUE)
+dir.create("lab-04_files", showWarnings = FALSE)
 
-# recreate it
-dir.create("lab-04_files")
+# Open STAC connection
+stac_query <- stac("https://planetarycomputer.microsoft.com/api/stac/v1")
 
-# run query again
+# Bands 1-6
+bands <- c("coastal", "blue", "green", "red", "nir08", "swir16")
+
+# Search and sign
 Palo <- stac_query |>
   stac_search(
     collections = "landsat-c2-l2",
@@ -115,24 +119,39 @@ Palo <- stac_query |>
   get_request() |>
   items_sign(sign_planetary_computer())
 
-# download again
+# Use only the first scene
+Palo_one <- Palo
+Palo_one$features <- Palo$features[1]
+
+# Download bands
 assets_download(
-  Palo,
+  Palo_one,
   asset_names = bands,
   output_dir = "lab-04_files",
   overwrite = TRUE
 )
 
-# check contents
-list.files("lab-04_files", recursive = TRUE)
-
+# Get downloaded tif files
 files <- list.files(
   "lab-04_files",
   pattern = "\\.tif$|\\.TIF$",
   full.names = TRUE,
   recursive = TRUE
 )
+
+# Make sure files are in band order
+files <- files[match(
+  c("SR_B1", "SR_B2", "SR_B3", "SR_B4", "SR_B5", "SR_B6"),
+  sub(".*_(SR_B[1-6])\\.TIF$", "\\1", basename(files))
+)]
+
+# Create raster stack
+r <- rast(files)
+
+# Name the layers
+names(r) <- bands
 ```
+
 > This code was not working for me so I plugged it into ChatGBT version 5.3 and it edited my code to prevent errors.
 OpenAI. (2026). ChatGPT (GPT-5.3) ["Why is my code not running (including code and error message)]. https://chat.openai.com/.
 
@@ -262,6 +281,8 @@ plot(Stacked, col = colorRampPalette(c("blue", "white", "red"))(256))
 > Performing raster algebra on the imagery produced five different images representing flooding indices along the Cedar River near Palo, Iowa. The scalebar for each plot shows the range of values used to distinguish water from other land cover types. For instance, in the NDVI plot, values near 0 or lower (shown in dark blue) indicate water, while lighter blue and red represent vegetation and other surfaces. The NDWI plot performs a similar separation but with the color scheme reversed, where red highlights water and blue represents non-water areas. This makes water features stand out more clearly than in the NDVI image. The MNDWI method further improves the separation between water and non-water areas, making flooded regions more distinct. The WRI plot is similar but uses a different scalebar (values greater than 1), and it appears to reveal less flooding compared to the other methods. Lastly, the SWI method isolates water features very clearly in blue while making other areas white. This makes it effective for identifying the main flooded river channel, although it removes much of the surrounding land cover detail. Overall, all methods identify the flooded river, but the extent of flooding varies noticeably between them depending on how each index emphasizes water relative compared to other surface cover types.
 ### Step 2: Raster Thresholding
 
+### Step 2: Raster Thresholding
+
 Here we will extract the flood extents from each of the above rasters using the thresholds defined in the above table.
 
 For this, we will use the `app` function and apply a custom formula for each calculated field from step 1 that applies the threshold in a way that flooded cells are 1 and non-flooded cells are 0.
@@ -350,14 +371,14 @@ Palo_Values <- na.omit(Palo_Values)
   
   - Once the `kmeans` algorithm runs, the output will be a list of components. One of these is `cluster` which provides a vector of integers from (1:`k`) indicating the cluster to which each row was allocated.
   
-```{r}
+```{r, echo = TRUE}
 km12 <- kmeans(Palo_Values, centers = 10)
 ```
-
+  
 ### Step 4:
 
   - Create a new raster object by copying one of the original bands. For example:
-  
+
 ```{r, echo = TRUE}
 New_Palo <- Palo_Crop[[1]]
 ```
@@ -412,12 +433,15 @@ Awesome! You have now created a flood raster using 6 different methods. Our last
 
  - First we will calculate the total area of the flooded cells in each image. You can use `global` to determine the sum of each layer. Since flooded cells have a value of 1, the sum of an entire band is equivalent to the number of flooded cells. You can then use the resolution of the cell to convert counts to a flooded area. 
  
- > The Flood_Sum results reveal that the K-means (7280) method produced the largest area whereas the NDVI produces the smallest (4979). The total flood area for this region is 900 m^2. The Flood_Area_M2 per method reveals that K-means (6,552,000 m^2) again has the largest area, whereas the NDWI method produces the smallest flood area (3,89,000 m^2). This highlights the importance of observing multiple methods prior to determining flood calculations.
+> The Flood_Sum results reveal that the K-means (7280) method produced the largest area whereas the NDVI produces the smallest (4979). The total flood area for this region is 900 m^2. The Flood_Area_M2 per method reveals that K-means (6,552,000 m^2) again has the largest area, whereas the NDWI method produces the smallest flood area (3,89,000 m^2). This highlights the importance of observing multiple methods prior to determining flood calculations.
  
 ```{r}
 Flood_Area <- prod(res(Palo_Crop)) 
+Flood_Area
 Flood_Sum <- global(Stacked_Flood2, fun = "sum", na.rm = TRUE)
+Flood_Sum
 Flood_Area_M2 <- Flood_Sum * Flood_Area
+Flood_Area_M2
 ```
  
  - Second we can visualize the uncertainty in our classifications by summing the entire stack using `app`. The higher the count in each pixel, the more certain we can be about its flooded state. For example, if a cell has a value of 6, it indicates that every method identified the cell as flooded, if it has a value of 2 then we know that two of the methods identified the cell as flooded.
@@ -441,7 +465,6 @@ Flood_Sum2 <- app(Flood_Sum2, fun = function(x) ifelse(x == 0, NA, x))
 mapview(Flood_Sum2)
 ```
 
-
 Congratulations! You have successfully carried out a complete flood analysis from data acquisition through evaluation. This kind of work goes on regularly and is part of a couple national efforts (NOAA, USGS, FirstStreet, FEMA) to generate flood inundation libraries that contribute to better extraction and classification of realtime flood events, resource allocation during events, and damage assessments post events.
 
 Here we used Landsat imagery but the same process could be implemented on drone footage, MODIS data, or other private satellite imagery.
@@ -452,7 +475,15 @@ Your evaluation was based purely on the raster data structure and your ability t
 
 Check out this drone footage taken during the flooding in Palo, Iowa.
 
+<center>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/n7aJnLLzocE?si=GsEs7F0Ytuk_zCgB" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+</center>
+
 In particular we see a bit of residential flooding at minute 2:17 (screen shot below)
+
+<center>
+![](../img/palo-flood.png)
+</center>
 
 Our goal is to see if our flood classifications were able to capture this event.
 

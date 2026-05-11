@@ -34,6 +34,8 @@ This website contains assignments completed for the CSU 523C course requirements
 - [Lab 5](lab-05.html) 
 
     - Lab 5 involved modeling streamflow data using differnt modeling methods and parameters from the watersheds.
+
+- [Lab 6](lab-06.html)
       
 ## Contact
 
