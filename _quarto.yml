@@ -9,17 +9,17 @@ website:
       - text: Home
         file: index.qmd
       - text: Lab 1
-        file: lab-01.html
+        file: lab-01.qmd
       - text: Lab 2
-        file: lab-02.html
+        file: lab-02.qmd
       - text: Lab 3
-        file: lab-03.html
+        file: lab-03.qmd
       - text: Lab 4
-        file: lab-04.html
+        file: lab-04.qmd
       - text: Lab 5
-        file: lab-05.html
+        file: lab-05.qmd
       - text: Lab 6
-        file: lab-06.html
+        file: lab-06.qmd
 
 format:
   html:
